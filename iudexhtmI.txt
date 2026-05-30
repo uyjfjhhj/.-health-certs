@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة إصدار الشهادات الصحية الرقمية</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root { --primary-color: #0d6efd; --success-color: #198754; --dark-green: #005A36; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h2, h3 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+        .card { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+        .btn { padding: 12px 25px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 15px; transition: 0.3s; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        table, th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background-color: #f8f9fa; }
+        .actions-btn { padding: 6px 12px; border: none; border-radius: 4px; background: var(--success-color); color: white; cursor: pointer; font-weight: bold; }
+        
+        /* تنسيق حاوية الشهادة */
+        .certificate-secure-wrap { display: none; }
+        
+        /* وضع العرض المباشر للشهادة عمودياً عند فحص الباركود */
+        body.view-mode .container { display: none; }
+        body.view-mode .certificate-secure-wrap { display: block; margin: 0 auto; padding: 10px; }
+
+        .certificate-container { 
+            width: 100%; 
+            max-width: 210mm; 
+            min-height: 297mm; 
+            background: #fff; 
+            padding: 20mm 15mm; 
+            box-sizing: border-box; 
+            position: relative; 
+            margin: 0 auto; 
+            border: 2px solid var(--dark-green); 
+            box-shadow: 0 0 15px rgba(0,0,0,0.1); 
+            display: flex;
+            flex-direction: column;
+        }
+        .cert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .municipality-title { color: var(--dark-green); font-weight: bold; font-size: 24px; }
+        .municipality-subtitle { color: var(--dark-green); font-size: 12px; font-family: Arial; }
+        .logo-placeholder { width: 90px; height: 90px; border-radius: 50%; background: var(--dark-green); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; text-align: center; font-weight: bold; }
+        
+        .worker-meta-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .worker-photo { width: 120px; height: 150px; border: 2px solid var(--dark-green); object-fit: cover; background-color: #eee; border-radius: 4px; }
+        .qr-zone { width: 120px; height: 120px; }
+        
+        .cert-title { text-align: center; color: var(--dark-green); font-size: 30px; font-weight: bold; margin: 20px 0; letter-spacing: 1px; }
+        .data-table-box { border: 2px solid #555; border-radius: 6px; width: 100%; overflow: hidden; margin-top: 10px; }
+        .data-row { display: flex; border-bottom: 1px solid #555; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { width: 35%; background: #f8f9fa; padding: 12px; font-weight: bold; border-left: 1px solid #555; font-size: 14px; }
+        .data-value { width: 65%; padding: 12px; background: #fff; font-size: 14px; text-align: right; color: #222; }
+        .cert-footer-text { margin-top: auto; border-top: 2px solid var(--dark-green); padding-top: 20px; font-size: 13px; line-height: 1.8; font-weight: bold; color: #444; text-align: justify; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card" id="formSection">
+        <h2>منصة إدخال بيانات العامل والمنشأة</h2>
+        <form id="workerForm" onsubmit="saveWorkerData(event)">
+            <div class="form-grid">
+                <div class="form-group"><label>رقم الهوية / الإقامة:</label><input type="text" id="workerId" required></div>
+                <div class="form-group"><label>الاسم الكامل:</label><input type="text" id="workerName" required></div>
+                <div class="form-group"><label>الجنس:</label><select id="workerGender"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div>
+                <div class="form-group"><label>المهنة:</label><input type="text" id="workerJob" required></div>
+                <div class="form-group"><label>الجنسية:</label><input type="text" id="workerNation" required></div>
+                <div class="form-group"><label>تاريخ إصدار الشهادة (هجري):</label><input type="text" id="issueDate" required placeholder="DD/MM/YYYY"></div>
+                <div class="form-group"><label>تاريخ انتهاء الشهادة (هجري):</label><input type="text" id="expiryDate" required placeholder="DD/MM/YYYY"></div>
+                <div class="form-group"><label>نوع البرنامج التثقيفي:</label><input type="text" id="programType" required></div>
+                <div class="form-group"><label>تاريخ البرنامج:</label><input type="date" id="programDate" required></div>
+                <div class="form-group"><label>مكان الإصدار:</label><input type="text" id="issuePlace" value="أمانة منطقة الرياض" required></div>
+                <div class="form-group"><label>رقم المنشأة:</label><input type="text" id="establishmentId" required></div>
+                <div class="form-group"><label>اسم المنشأة:</label><input type="text" id="establishmentName" required></div>
+                <div class="form-group"><label>إضافة صورة الشخص:</label><input type="file" id="workerPhoto" accept="image/*" required onchange="previewImage(event)"></div>
+            </div>
+            <button type="submit" class="btn btn-primary">حفظ البيانات والانتقال للوحة التحكم</button>
+        </form>
+    </div>
+
+    <div class="card" id="dashboardSection">
+        <h3>لوحة التحكم الرئيسية (البيانات المسجلة)</h3>
+        <div style="overflow-x: auto;">
+            <table id="workersTable">
+                <thead>
+                    <tr><th>رقم الهوية</th><th>الاسم</th><th>المهنة</th><th>المنشأة</th><th>تاريخ الانتهاء</th><th>التحكم والإصدار</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="certificate-secure-wrap" id="certWrapper">
+    <div class="certificate-container" id="certificateTemplate">
+        <div class="cert-header">
+            <div>
+                <div class="municipality-title">أمانة منطقة الرياض</div>
+                <div class="municipality-subtitle">RIYADH REGION MUNICIPALITY</div>
+            </div>
+            <div class="logo-placeholder">شعار أمانة الرياض</div>
+        </div>
+        <div class="worker-meta-section">
+            <img id="certViewPhoto" class="worker-photo" src="" alt="صورة العامل">
+            <div id="certViewQR" class="qr-zone"></div>
+        </div>
+        <div class="cert-title">شهادة صحية</div>
+        <div class="data-table-box">
+            <div class="data-row"><div class="data-label">رقم الشهادة</div><div class="data-value" id="lblCertId"></div></div>
+            <div class="data-row"><div class="data-label">مكان الإصدار</div><div class="data-value" id="lblIssuePlace"></div></div>
+            <div class="data-row"><div class="data-label">نهاية الصلاحية</div><div class="data-value" id="lblExpiry"></div></div>
+            <div class="data-row" style="border-top: 2px solid #555;"><div class="data-label">الاسم</div><div class="data-value" id="lblName" style="font-weight: bold; font-size: 16px;"></div></div>
+            <div class="data-row"><div class="data-label">رقم الهوية / الإقامة</div><div class="data-value" id="lblNationalId"></div></div>
+            <div class="data-row"><div class="data-label">الجنس</div><div class="data-value" id="lblGender"></div></div>
+            <div class="data-row"><div class="data-label">الجنسية</div><div class="data-value" id="lblNation"></div></div>
+            <div class="data-row"><div class="data-label">المهنة</div><div class="data-value" id="lblJob"></div></div>
+        </div>
+        <div class="cert-footer-text">* حامل هذه الشهادة حاصل على تقرير طبي يثبت خلوه من الأمراض المعدية وأجريت له التطعيمات التي تخوله للعمل في محلات الأغذية والصحة العامة.</div>
+    </div>
+</div>
+
+<script>
+    let workersDatabase = JSON.parse(localStorage.getItem('workersDB')) || [];
+    let currentPhotoDataUrl = "";
+
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const dataParam = urlParams.get('data');
+        
+        if (dataParam) {
+            // إذا فتحنا الرابط من الكاميرا، يتم تفعيل العرض العمودي للشهادة مباشرة وبشكل كامل
+            document.body.classList.add('view-mode');
+            renderCertificateFromQuery(dataParam);
+        } else {
+            updateDashboardTable();
+        }
+    };
+
+    function previewImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // تقليص حجم الصورة برمجياً لضمان تخزينها بالكامل داخل كود الباركود دون مشاكل
+            const reader = new FileReader();
+            reader.onload = function(e){
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 120; 
+                    canvas.height = 150;
+                    ctx.drawImage(img, 0, 0, 120, 150);
+                    currentPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function saveWorkerData(event) {
+        event.preventDefault();
+        const worker = {
+            id: document.getElementById('workerId').value,
+            name: document.getElementById('workerName').value,
+            gender: document.getElementById('workerGender').value,
+            job: document.getElementById('workerJob').value,
+            nation: document.getElementById('workerNation').value,
+            expiryDate: document.getElementById('expiryDate').value,
+            issuePlace: document.getElementById('issuePlace').value,
+            estName: document.getElementById('establishmentName').value,
+            photo: currentPhotoDataUrl
+        };
+
+        workersDatabase.push(worker);
+        localStorage.setItem('workersDB', JSON.stringify(workersDatabase)); 
+        updateDashboardTable();
+        document.getElementById('workerForm').reset();
+        currentPhotoDataUrl = ""; 
+        alert('تم الحفظ بنجاح!');
+    }
+
+    function updateDashboardTable() {
+        const tbody = document.querySelector('#workersTable tbody');
+        tbody.innerHTML = "";
+        workersDatabase.forEach((worker, index) => {
+            tbody.innerHTML += `<tr>
+                <td>${worker.id}</td>
+                <td><strong>${worker.name}</strong></td>
+                <td>${worker.job}</td>
+                <td>${worker.estName}</td>
+                <td>${worker.expiryDate}</td>
+                <td><button class="actions-btn" onclick="downloadPDF(${index})">تحميل الشهادة PDF</button></td>
+            </tr>`;
+        });
+    }
+
+    function generateQRAndFillData(worker, targetQRId) {
+        document.getElementById('lblCertId').innerText = "7567-" + worker.id.substring(0,4);
+        document.getElementById('lblIssuePlace').innerText = worker.issuePlace;
+        document.getElementById('lblExpiry').innerText = worker.expiryDate;
+        document.getElementById('lblName').innerText = worker.name;
+        document.getElementById('lblNationalId').innerText = worker.id;
+        document.getElementById('lblGender').innerText = worker.gender;
+        document.getElementById('lblNation').innerText = worker.nation;
+        document.getElementById('lblJob').innerText = worker.job;
+        document.getElementById('certViewPhoto').src = worker.photo || "";
+
+        const qrContainer = document.getElementById(targetQRId);
+        qrContainer.innerHTML = ""; 
+
+        // تحويل كافة بيانات العامل وصورته الشخصية إلى نص مشفر (Base64) لحملها داخل الرابط
+        const jsonString = JSON.stringify(worker);
+        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+
+        const currentSiteUrl = window.location.href.split('?')[0];
+        const verificationUrl = `${currentSiteUrl}?data=${encodedData}`;
+        
+        new QRCode(qrContainer, {
+            text: verificationUrl,
+            width: 120, height: 120,
+            colorDark : "#000000", colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.L
+        });
+    }
+
+    function downloadPDF(index) {
+        const worker = workersDatabase[index];
+        document.getElementById('certWrapper').style.display = "block";
+        generateQRAndFillData(worker, 'certViewQR');
+
+        setTimeout(() => {
+            const element = document.getElementById('certificateTemplate');
+            const opt = {
+                margin: 0, filename: `شهادة_${worker.name}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save().then(()=>{
+                if(!document.body.classList.contains('view-mode')) {
+                    document.getElementById('certWrapper').style.display = "none";
+                }
+            });
+        }, 600);
+    }
+
+    // فك التشفير وعرض الشهادة عمودياً عند فحص الباركود عبر الهاتف
+    function renderCertificateFromQuery(encodedData) {
+        try {
+            const decodedString = decodeURIComponent(escape(atob(encodedData)));
+            const worker = JSON.parse(decodedString);
+            if (worker) {
+                generateQRAndFillData(worker, 'certViewQR');
+            }
+        } catch (e) {
+            document.getElementById('certificateTemplate').innerHTML = "<h2 style='text-align:center; padding:50px;'>عذراً، رمز الاستجابة السريع يحتوي على بيانات غير صالحة.</h2>";
+        }
+    }
+</script>
+</body>
+</html>
